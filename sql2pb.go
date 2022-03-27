@@ -21,7 +21,7 @@ func main() {
 	table := flag.String("table", "*", "the table schema")
 	serviceName := flag.String("service_name", *schema, "the protobuf service name , defaults to the database schema.")
 	packageName := flag.String("package", *schema, "the protocol buffer package. defaults to the database schema.")
-	goPackageName := flag.String("go_package", "", "the protocol buffer gp_package. defaults to the database schema.")
+	goPackageName := flag.String("go_package", "", "the protocol buffer go_package. defaults to the database schema.")
 	ignoreTableStr := flag.String("ignore_tables", "", "a comma spaced list of tables to ignore")
 
 	flag.Parse()
