@@ -30,7 +30,7 @@ Usage of sql2pb:
   -service_name string
         the protobuf service name , defaults to the database schema.
   -table string
-        the table schema (default "*")
+        the table schema，multiple tables ',' split.  (default "*")
   -user string
         the database user (default "root")
 
