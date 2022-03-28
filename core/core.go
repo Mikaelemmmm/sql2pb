@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"github.com/Mikaelemmmm/sql2pb/tools/stringx"
 	"log"
 	"regexp"
 	"sort"
-	"github.com/Mikaelemmmm/sql2pb/tools/stringx"
 	"strings"
 
 	"github.com/chuckpreslar/inflect"
@@ -113,15 +113,18 @@ func dbSchema(db *sql.DB) (string, error) {
 }
 
 func dbColumns(db *sql.DB, schema, table string) ([]Column, error) {
+
+	tableArr:= strings.Split(table,",")
+
 	q := "SELECT TABLE_NAME, COLUMN_NAME, IS_NULLABLE, DATA_TYPE, " +
 		"CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, COLUMN_TYPE " +
 		"FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ?"
 
 	if table != "" && table != "*" {
-		q = q + " AND TABLE_NAME= '" + table + "'"
+		q +=  " AND TABLE_NAME IN('" + strings.TrimRight(strings.Join(tableArr,"' ,'"),",") + "')"
 	}
 
-	q = q + " ORDER BY TABLE_NAME, ORDINAL_POSITION"
+	q +=  " ORDER BY TABLE_NAME, ORDINAL_POSITION"
 
 	rows, err := db.Query(q, schema)
 	defer rows.Close()
