@@ -153,8 +153,6 @@ func dbColumns(db *sql.DB, schema, table string) ([]Column, error) {
 	return cols, nil
 }
 
-
-
 // Schema is a representation of a protobuf schema.
 type Schema struct {
 	Syntax    string
