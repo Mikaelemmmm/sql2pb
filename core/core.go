@@ -681,7 +681,6 @@ func parseColumn(s *Schema, msg *Message, col Column) error {
 	return nil
 }
 
-//是否在slice中
 func isInSlice(slice []string, s string) bool {
 	for i, _ := range slice {
 		if slice[i] == s {
