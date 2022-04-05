@@ -40,24 +40,39 @@ Usage of sql2pb:
 $ sql2pb -go_package ./pb -host localhost -package pb -password root -port 3306 -schema usercenter -service_name usersrv -user root > usersrv.proto
 ```
 
+
+
 #### Use as an imported library
 
+```sh
+$ go get -u github.com/Mikaelemmmm/sql2pb@latest
+```
+
 ```go
-import "github.com/Mikaelemmmm/sql2pb"
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"github.com/Mikaelemmmm/sql2pb/core"
+	_ "github.com/go-sql-driver/mysql"
+	"log"
+)
 
 func main() {
-    connStr := config.get("dbConnStr")
-    pkg := "my_package"
-    goPkg := "./my_package"
-    table:= "*"
-    serviceName:="usersrv"
 
-    db, err := sql.Open(*dbType, connStr)
-    if err != nil {
-        log.Fatal(err)
-    }
+	dbType:= "mysql"
+	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", "root", "root", "127.0.0.1", 3306, "zero-demo")
+	pkg := "my_package"
+	goPkg := "./my_package"
+	table:= "*"
+	serviceName:="usersrv"
 
-    defer db.Close()
+	db, err := sql.Open(dbType, connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
 
 	s, err := core.GenerateSchema(db, table,nil,serviceName, goPkg, pkg)
 
