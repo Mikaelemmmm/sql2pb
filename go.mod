@@ -1,6 +1,6 @@
 module github.com/Mikaelemmmm/sql2pb
 
-go 1.18
+go 1.16
 
 require (
 	github.com/chuckpreslar/inflect v0.0.0-20150228233301-423e3ac59c61
@@ -9,6 +9,9 @@ require (
 )
 
 require (
+	github.com/fsnotify/fsnotify v1.5.1
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.19.0 // indirect
+	github.com/sirupsen/logrus v1.8.1
+	github.com/spf13/viper v1.10.1
 )

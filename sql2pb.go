@@ -2,52 +2,65 @@ package main
 
 import (
 	"database/sql"
-	"flag"
 	"fmt"
+	"github.com/Mikaelemmmm/sql2pb/config"
 	"github.com/Mikaelemmmm/sql2pb/core"
 	"log"
+	"os"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
+//保存文件函数
+func saveFile(conf *config.Config, content string) {
+	fileName := conf.FilePath + conf.PackageName + ".proto"
+	//判断文件是否存在
+	_, err := os.Stat(fileName)
+	if err == nil {
+		//删除文件
+		if err := os.Remove(fileName); err != nil {
+			panic(err)
+		}
+	}
+	f, err := os.Create(fileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+	_, err = f.WriteString(content)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
 func main() {
-	dbType := flag.String("db", "mysql", "the database type")
-	host := flag.String("host", "localhost", "the database host")
-	port := flag.Int("port", 3306, "the database port")
-	user := flag.String("user", "root", "the database user")
-	password := flag.String("password", "root", "the database password")
-	schema := flag.String("schema", "", "the database schema")
-	table := flag.String("table", "*", "the table schema，multiple tables ',' split. ")
-	serviceName := flag.String("service_name", *schema, "the protobuf service name , defaults to the database schema.")
-	packageName := flag.String("package", *schema, "the protocol buffer package. defaults to the database schema.")
-	goPackageName := flag.String("go_package", "", "the protocol buffer go_package. defaults to the database schema.")
-	ignoreTableStr := flag.String("ignore_tables", "", "a comma spaced list of tables to ignore")
-
-	flag.Parse()
-
-	if *schema == ""{
-		fmt.Println(" - please input the database schema ")
+	if err := config.InitConfig(); err != nil {
+		panic(err)
+	}
+	conf := config.GetConfig()
+	if conf.Database == "" {
+		fmt.Println("必须指定数据库名称")
 		return
 	}
 
-	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", *user, *password, *host, *port, *schema)
-	db, err := sql.Open(*dbType, connStr)
+	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", conf.User, conf.Password, conf.Host, conf.Port, conf.Database)
+	db, err := sql.Open(conf.DbType, connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	defer db.Close()
 
-	ignoreTables := strings.Split(*ignoreTableStr, ",")
+	ignoreTables := strings.Split(conf.IgnoreTableStr, ",")
 
-	s, err := core.GenerateSchema(db, *table,ignoreTables,*serviceName, *goPackageName, *packageName )
+	s, err := core.GenerateSchema(db, conf.Table, ignoreTables, conf.ServiceName, conf.GoPackageName, conf.PackageName)
 
 	if nil != err {
 		log.Fatal(err)
 	}
-
-	if nil != s {
-		fmt.Println(s)
+	if s != nil {
+		//将s内容保存到文件
+		saveFile(conf, s.String())
 	}
 }

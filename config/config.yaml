@@ -1,0 +1,12 @@
+dbType: "mysql" # 数据库类型
+host: "localhost" # 数据库地址
+port: 3306 # 数据库端口
+user: "root" # 数据库用户名
+password: "123456" # 数据库密码
+database: "mall" # 数据库名称
+table: "user" # 数据表名称 全选为 * 即可 指定表名称 ','分割
+serviceName: "test" # grpc服务名称
+packageName: "test" # grpc包名称
+goPackageName: "test" # go包名称
+ignoreTableStr: "test" # 忽略表名称','
+filePath: "./" # 文件输出路径
