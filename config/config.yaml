@@ -9,4 +9,4 @@ serviceName: "test" # grpc服务名称
 packageName: "test" # grpc包名称
 goPackageName: "test" # go包名称
 ignoreTableStr: "test" # 忽略表名称','
-filePath: "./" # 文件输出路径
+filePath: "./proto/" # 文件输出路径

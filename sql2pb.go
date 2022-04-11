@@ -7,19 +7,22 @@ import (
 	"github.com/Mikaelemmmm/sql2pb/core"
 	"log"
 	"os"
+	"path"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
+const (
+	defaultDirMode = 0o755
+)
+
 //保存文件函数
 func saveFile(conf *config.Config, content string) {
-	fileName := conf.FilePath + conf.PackageName + ".proto"
-	//判断文件是否存在
-	_, err := os.Stat(fileName)
-	if err == nil {
-		//删除文件
-		if err := os.Remove(fileName); err != nil {
+	fileName := path.Join(conf.FilePath, conf.PackageName+".proto")
+	_, err := os.Stat(conf.FilePath)
+	if err != nil {
+		if err := os.Mkdir(conf.FilePath, defaultDirMode); err != nil {
 			panic(err)
 		}
 	}
