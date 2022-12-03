@@ -91,7 +91,7 @@ func typesFromColumns(s *Schema, cols []Column, ignoreTables, ignoreColumns []st
 		}
 
 		messageName := snaker.SnakeToCamel(c.TableName)
-		messageName = inflect.Singularize(messageName)
+		//messageName = inflect.Singularize(messageName)
 
 		msg, ok := messageMap[messageName]
 		if !ok {
