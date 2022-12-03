@@ -3,6 +3,11 @@
 Generates a protobuf file from your mysql database.
 
 ### Uses
+
+##### Tips:  If your operating system is windows, the default encoding of windows command line is "GBK", you need to change it to "UTF-8", otherwise the generated file will be messed up. 
+
+
+
 #### Use from the command line:
 
 `go install github.com/Mikaelemmmm/sql2pb@latest`
@@ -13,10 +18,14 @@ $ sql2pb -h
 Usage of sql2pb:
   -db string
         the database type (default "mysql")
+  -field_style string
+        gen protobuf field style, sql_pb | sqlPb (default "sqlPb")
   -go_package string
-        the protocol buffer gp_package. defaults to the database schema.
+        the protocol buffer go_package. defaults to the database schema.
   -host string
         the database host (default "localhost")
+  -ignore_columns string
+        a comma spaced list of mysql columns to ignore
   -ignore_tables string
         a comma spaced list of tables to ignore
   -package string
@@ -67,14 +76,14 @@ func main() {
 	goPkg := "./my_package"
 	table:= "*"
 	serviceName:="usersrv"
+	fieldStyle := "sqlPb"
 
 	db, err := sql.Open(dbType, connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-
-	s, err := core.GenerateSchema(db, table,nil,serviceName, goPkg, pkg)
+	s, err := core.GenerateSchema(db, table,nil,nil,serviceName, goPkg, pkg,fieldStyle)
 
 	if nil != err {
 		log.Fatal(err)
