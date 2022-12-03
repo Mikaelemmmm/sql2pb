@@ -23,10 +23,12 @@ func main() {
 	packageName := flag.String("package", *schema, "the protocol buffer package. defaults to the database schema.")
 	goPackageName := flag.String("go_package", "", "the protocol buffer go_package. defaults to the database schema.")
 	ignoreTableStr := flag.String("ignore_tables", "", "a comma spaced list of tables to ignore")
+	ignoreColumnStr := flag.String("ignore_columns", "", "a comma spaced list of mysql columns to ignore")
+	fieldStyle := flag.String("field_style", "sqlPb", "gen protobuf field style, sql_pb | sqlPb")
 
 	flag.Parse()
 
-	if *schema == ""{
+	if *schema == "" {
 		fmt.Println(" - please input the database schema ")
 		return
 	}
@@ -40,8 +42,9 @@ func main() {
 	defer db.Close()
 
 	ignoreTables := strings.Split(*ignoreTableStr, ",")
+	ignoreColumns := strings.Split(*ignoreColumnStr, ",")
 
-	s, err := core.GenerateSchema(db, *table,ignoreTables,*serviceName, *goPackageName, *packageName )
+	s, err := core.GenerateSchema(db, *table, ignoreTables, ignoreColumns, *serviceName, *goPackageName, *packageName, *fieldStyle)
 
 	if nil != err {
 		log.Fatal(err)

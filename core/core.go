@@ -21,6 +21,10 @@ const (
 	// indent represents the indentation amount for fields. the style guide suggests
 	// two spaces
 	indent = "  "
+
+	// gen protobuf field style
+	fieldStyleToCamelWithStartLower = "sqlPb"
+	fieldStyleToSnake               = "sql_pb"
 )
 
 // GenerateSchema generates a protobuf schema from a database connection and a package name.
@@ -30,7 +34,7 @@ const (
 // Do not rely on the structure of the Generated schema to provide any context about
 // the protobuf types. The schema reflects the layout of a protobuf file and should be used
 // to pipe the output of the `Schema.String()` to a file.
-func GenerateSchema(db *sql.DB, table string, ignoreTables []string, serviceName, goPkg, pkg string) (*Schema, error) {
+func GenerateSchema(db *sql.DB, table string, ignoreTables, ignoreColumns []string, serviceName, goPkg, pkg, fieldStyle string) (*Schema, error) {
 	s := &Schema{}
 
 	dbs, err := dbSchema(db)
@@ -54,7 +58,7 @@ func GenerateSchema(db *sql.DB, table string, ignoreTables []string, serviceName
 		return nil, err
 	}
 
-	err = typesFromColumns(s, cols, ignoreTables)
+	err = typesFromColumns(s, cols, ignoreTables, ignoreColumns, fieldStyle)
 	if nil != err {
 		return nil, err
 	}
@@ -67,15 +71,22 @@ func GenerateSchema(db *sql.DB, table string, ignoreTables []string, serviceName
 }
 
 // typesFromColumns creates the appropriate schema properties from a collection of column types.
-func typesFromColumns(s *Schema, cols []Column, ignoreTables []string) error {
+func typesFromColumns(s *Schema, cols []Column, ignoreTables, ignoreColumns []string, fieldStyle string) error {
 	messageMap := map[string]*Message{}
 	ignoreMap := map[string]bool{}
+	ignoreColumnMap := map[string]bool{}
 	for _, ig := range ignoreTables {
 		ignoreMap[ig] = true
+	}
+	for _, ic := range ignoreColumns {
+		ignoreColumnMap[ic] = true
 	}
 
 	for _, c := range cols {
 		if _, ok := ignoreMap[c.TableName]; ok {
+			continue
+		}
+		if _, ok := ignoreColumnMap[c.ColumnName]; ok {
 			continue
 		}
 
@@ -84,7 +95,7 @@ func typesFromColumns(s *Schema, cols []Column, ignoreTables []string) error {
 
 		msg, ok := messageMap[messageName]
 		if !ok {
-			messageMap[messageName] = &Message{Name: messageName, Comment: c.TableComment}
+			messageMap[messageName] = &Message{Name: messageName, Comment: c.TableComment, Style: fieldStyle}
 			msg = messageMap[messageName]
 		}
 
@@ -359,9 +370,10 @@ type Message struct {
 	Name    string
 	Comment string
 	Fields  []MessageField
+	Style   string
 }
 
-// gen default message
+// GenDefaultMessage gen default message
 func (m Message) GenDefaultMessage(buf *bytes.Buffer) {
 	mOrginName := m.Name
 	mOrginFields := m.Fields
@@ -375,6 +387,10 @@ func (m Message) GenDefaultMessage(buf *bytes.Buffer) {
 		filedTag++
 		field.tag = filedTag
 		field.Name = stringx.From(field.Name).ToCamelWithStartLower()
+		if m.Style == fieldStyleToSnake {
+			field.Name = stringx.From(field.Name).ToSnake()
+		}
+
 		if field.Comment == "" {
 			field.Comment = field.Name
 		}
@@ -388,7 +404,7 @@ func (m Message) GenDefaultMessage(buf *bytes.Buffer) {
 	m.Fields = mOrginFields
 }
 
-// gen add req message
+// GenRpcAddReqRespMessage gen add req message
 func (m Message) GenRpcAddReqRespMessage(buf *bytes.Buffer) {
 	mOrginName := m.Name
 	mOrginFields := m.Fields
@@ -404,6 +420,9 @@ func (m Message) GenRpcAddReqRespMessage(buf *bytes.Buffer) {
 		filedTag++
 		field.tag = filedTag
 		field.Name = stringx.From(field.Name).ToCamelWithStartLower()
+		if m.Style == fieldStyleToSnake {
+			field.Name = stringx.From(field.Name).ToSnake()
+		}
 		if field.Comment == "" {
 			field.Comment = field.Name
 		}
@@ -427,7 +446,7 @@ func (m Message) GenRpcAddReqRespMessage(buf *bytes.Buffer) {
 
 }
 
-// gen add resp message
+// GenRpcUpdateReqMessage gen add resp message
 func (m Message) GenRpcUpdateReqMessage(buf *bytes.Buffer) {
 	mOrginName := m.Name
 	mOrginFields := m.Fields
@@ -442,6 +461,9 @@ func (m Message) GenRpcUpdateReqMessage(buf *bytes.Buffer) {
 		filedTag++
 		field.tag = filedTag
 		field.Name = stringx.From(field.Name).ToCamelWithStartLower()
+		if m.Style == fieldStyleToSnake {
+			field.Name = stringx.From(field.Name).ToSnake()
+		}
 		if field.Comment == "" {
 			field.Comment = field.Name
 		}
@@ -464,7 +486,7 @@ func (m Message) GenRpcUpdateReqMessage(buf *bytes.Buffer) {
 	m.Fields = mOrginFields
 }
 
-// gen add resp message
+// GenRpcDelReqMessage gen add resp message
 func (m Message) GenRpcDelReqMessage(buf *bytes.Buffer) {
 	mOrginName := m.Name
 	mOrginFields := m.Fields
@@ -489,7 +511,7 @@ func (m Message) GenRpcDelReqMessage(buf *bytes.Buffer) {
 	m.Fields = mOrginFields
 }
 
-// gen add resp message
+// GenRpcGetByIdReqMessage gen add resp message
 func (m Message) GenRpcGetByIdReqMessage(buf *bytes.Buffer) {
 	mOrginName := m.Name
 	mOrginFields := m.Fields
@@ -507,8 +529,15 @@ func (m Message) GenRpcGetByIdReqMessage(buf *bytes.Buffer) {
 	//resp
 	firstWord := strings.ToLower(string(m.Name[0]))
 	m.Name = "Get" + mOrginName + "ByIdResp"
+
+	name := stringx.From(firstWord + mOrginName[1:]).ToCamelWithStartLower()
+	comment := stringx.From(firstWord + mOrginName[1:]).ToCamelWithStartLower()
+	if m.Style == fieldStyleToSnake {
+		name = stringx.From(firstWord + mOrginName[1:]).ToSnake()
+		comment = stringx.From(firstWord + mOrginName[1:]).ToSnake()
+	}
 	m.Fields = []MessageField{
-		{Typ: mOrginName, Name: stringx.From(firstWord + mOrginName[1:]).ToCamelWithStartLower(), tag: 1, Comment: stringx.From(firstWord + mOrginName[1:]).ToCamelWithStartLower()},
+		{Typ: mOrginName, Name: name, tag: 1, Comment: comment},
 	}
 	buf.WriteString(fmt.Sprintf("%s\n", m))
 
@@ -517,7 +546,7 @@ func (m Message) GenRpcGetByIdReqMessage(buf *bytes.Buffer) {
 	m.Fields = mOrginFields
 }
 
-// gen add resp message
+// GenRpcSearchReqMessage gen add resp message
 func (m Message) GenRpcSearchReqMessage(buf *bytes.Buffer) {
 	mOrginName := m.Name
 	mOrginFields := m.Fields
@@ -525,7 +554,7 @@ func (m Message) GenRpcSearchReqMessage(buf *bytes.Buffer) {
 	m.Name = "Search" + mOrginName + "Req"
 	curFields := []MessageField{
 		{Typ: "int64", Name: "page", tag: 1, Comment: "page"},
-		{Typ: "int64", Name: "pageSize", tag: 2, Comment: "pageSize"},
+		{Typ: "int64", Name: "limit", tag: 2, Comment: "limit"},
 	}
 	var filedTag = len(curFields)
 	for _, field := range m.Fields {
@@ -534,7 +563,11 @@ func (m Message) GenRpcSearchReqMessage(buf *bytes.Buffer) {
 		}
 		filedTag++
 		field.tag = filedTag
+
 		field.Name = stringx.From(field.Name).ToCamelWithStartLower()
+		if m.Style == fieldStyleToSnake {
+			field.Name = stringx.From(field.Name).ToSnake()
+		}
 		if field.Comment == "" {
 			field.Comment = field.Name
 		}
@@ -550,8 +583,16 @@ func (m Message) GenRpcSearchReqMessage(buf *bytes.Buffer) {
 	//resp
 	firstWord := strings.ToLower(string(m.Name[0]))
 	m.Name = "Search" + mOrginName + "Resp"
+
+	name := stringx.From(firstWord + mOrginName[1:]).ToCamelWithStartLower()
+	comment := stringx.From(firstWord + mOrginName[1:]).ToCamelWithStartLower()
+	if m.Style == fieldStyleToSnake {
+		name = stringx.From(firstWord + mOrginName[1:]).ToSnake()
+		comment = stringx.From(firstWord + mOrginName[1:]).ToSnake()
+	}
+
 	m.Fields = []MessageField{
-		{Typ: "repeated " + mOrginName, Name: stringx.From(firstWord + mOrginName[1:]).ToCamelWithStartLower(), tag: 1, Comment: stringx.From(firstWord + mOrginName[1:]).ToCamelWithStartLower()},
+		{Typ: "repeated " + mOrginName, Name: name, tag: 1, Comment: comment},
 	}
 	buf.WriteString(fmt.Sprintf("%s\n", m))
 
@@ -611,6 +652,7 @@ func (f MessageField) String() string {
 
 // Column represents a database column.
 type Column struct {
+	Style                  string
 	TableName              string
 	TableComment           string
 	ColumnName             string
