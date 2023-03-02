@@ -16,7 +16,7 @@ func main() {
 	host := flag.String("host", "localhost", "the database host")
 	port := flag.Int("port", 3306, "the database port")
 	user := flag.String("user", "root", "the database user")
-	password := flag.String("password", "root", "the database password")
+	password := flag.String("password", "", "the database password")
 	schema := flag.String("schema", "", "the database schema")
 	table := flag.String("table", "*", "the table schema，multiple tables ',' split. ")
 	serviceName := flag.String("service_name", *schema, "the protobuf service name , defaults to the database schema.")
