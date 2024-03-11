@@ -26,3 +26,6 @@ _testmain.go
 .idea
 .idea/*
 .idea/**
+
+
+bin/*

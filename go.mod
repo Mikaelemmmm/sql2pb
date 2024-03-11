@@ -1,4 +1,4 @@
-module github.com/Mikaelemmmm/sql2pb
+module github.com/twitter-payments/sql2pb
 
 go 1.18
 

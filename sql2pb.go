@@ -4,9 +4,10 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/Mikaelemmmm/sql2pb/core"
 	"log"
 	"strings"
+
+	"github.com/twitter-payments/sql2pb/core"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -25,6 +26,7 @@ func main() {
 	ignoreTableStr := flag.String("ignore_tables", "", "a comma spaced list of tables to ignore")
 	ignoreColumnStr := flag.String("ignore_columns", "", "a comma spaced list of mysql columns to ignore")
 	fieldStyle := flag.String("field_style", "sqlPb", "gen protobuf field style, sql_pb | sqlPb")
+	generateRPC := flag.Bool("generate_rpc", false, "if set, generates the rpc service in addition to the types")
 
 	flag.Parse()
 
@@ -44,7 +46,7 @@ func main() {
 	ignoreTables := strings.Split(*ignoreTableStr, ",")
 	ignoreColumns := strings.Split(*ignoreColumnStr, ",")
 
-	s, err := core.GenerateSchema(db, *table, ignoreTables, ignoreColumns, *serviceName, *goPackageName, *packageName, *fieldStyle)
+	s, err := core.GenerateSchema(db, *table, ignoreTables, ignoreColumns, *serviceName, *goPackageName, *packageName, *fieldStyle, *generateRPC)
 
 	if nil != err {
 		log.Fatal(err)

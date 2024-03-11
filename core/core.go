@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"github.com/Mikaelemmmm/sql2pb/tools/stringx"
 	"log"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/twitter-payments/sql2pb/tools/stringx"
 
 	"github.com/chuckpreslar/inflect"
 	"github.com/serenize/snaker"
@@ -34,7 +35,7 @@ const (
 // Do not rely on the structure of the Generated schema to provide any context about
 // the protobuf types. The schema reflects the layout of a protobuf file and should be used
 // to pipe the output of the `Schema.String()` to a file.
-func GenerateSchema(db *sql.DB, table string, ignoreTables, ignoreColumns []string, serviceName, goPkg, pkg, fieldStyle string) (*Schema, error) {
+func GenerateSchema(db *sql.DB, table string, ignoreTables, ignoreColumns []string, serviceName, goPkg, pkg, fieldStyle string, generateRPC bool) (*Schema, error) {
 	s := &Schema{}
 
 	dbs, err := dbSchema(db)
@@ -173,6 +174,7 @@ type Schema struct {
 	Imports     sort.StringSlice
 	Messages    MessageCollection
 	Enums       EnumCollection
+	GenerateRPC bool
 }
 
 // MessageCollection represents a sortable collection of messages.
@@ -239,11 +241,14 @@ func (s *Schema) String() string {
 		buf.WriteString("//--------------------------------" + m.Comment + "--------------------------------")
 		buf.WriteString("\n")
 		m.GenDefaultMessage(buf)
-		m.GenRpcAddReqRespMessage(buf)
-		m.GenRpcUpdateReqMessage(buf)
-		m.GenRpcDelReqMessage(buf)
-		m.GenRpcGetByIdReqMessage(buf)
-		m.GenRpcSearchReqMessage(buf)
+		if s.GenerateRPC {
+			m.GenRpcAddReqRespMessage(buf)
+			m.GenRpcUpdateReqMessage(buf)
+			m.GenRpcDelReqMessage(buf)
+			m.GenRpcGetByIdReqMessage(buf)
+			m.GenRpcSearchReqMessage(buf)
+		}
+
 	}
 
 	buf.WriteString("\n")
@@ -258,22 +263,24 @@ func (s *Schema) String() string {
 		}
 	}
 
-	buf.WriteString("\n")
-	buf.WriteString("// ------------------------------------ \n")
-	buf.WriteString("// Rpc Func\n")
-	buf.WriteString("// ------------------------------------ \n\n")
+	if s.GenerateRPC {
+		buf.WriteString("\n")
+		buf.WriteString("// ------------------------------------ \n")
+		buf.WriteString("// Rpc Func\n")
+		buf.WriteString("// ------------------------------------ \n\n")
 
-	funcTpl := "service " + s.ServiceName + "{ \n\n"
-	for _, m := range s.Messages {
-		funcTpl += "\t //-----------------------" + m.Comment + "----------------------- \n"
-		funcTpl += "\t rpc Add" + m.Name + "(Add" + m.Name + "Req) returns (Add" + m.Name + "Resp); \n"
-		funcTpl += "\t rpc Update" + m.Name + "(Update" + m.Name + "Req) returns (Update" + m.Name + "Resp); \n"
-		funcTpl += "\t rpc Del" + m.Name + "(Del" + m.Name + "Req) returns (Del" + m.Name + "Resp); \n"
-		funcTpl += "\t rpc Get" + m.Name + "ById(Get" + m.Name + "ByIdReq) returns (Get" + m.Name + "ByIdResp); \n"
-		funcTpl += "\t rpc Search" + m.Name + "(Search" + m.Name + "Req) returns (Search" + m.Name + "Resp); \n"
+		funcTpl := "service " + s.ServiceName + "{ \n\n"
+		for _, m := range s.Messages {
+			funcTpl += "\t //-----------------------" + m.Comment + "----------------------- \n"
+			funcTpl += "\t rpc Add" + m.Name + "(Add" + m.Name + "Req) returns (Add" + m.Name + "Resp); \n"
+			funcTpl += "\t rpc Update" + m.Name + "(Update" + m.Name + "Req) returns (Update" + m.Name + "Resp); \n"
+			funcTpl += "\t rpc Del" + m.Name + "(Del" + m.Name + "Req) returns (Del" + m.Name + "Resp); \n"
+			funcTpl += "\t rpc Get" + m.Name + "ById(Get" + m.Name + "ByIdReq) returns (Get" + m.Name + "ByIdResp); \n"
+			funcTpl += "\t rpc Search" + m.Name + "(Search" + m.Name + "Req) returns (Search" + m.Name + "Resp); \n"
+		}
+		funcTpl = funcTpl + "\n}"
+		buf.WriteString(funcTpl)
 	}
-	funcTpl = funcTpl + "\n}"
-	buf.WriteString(funcTpl)
 
 	return buf.String()
 }
@@ -629,15 +636,16 @@ func (m *Message) AppendField(mf MessageField) error {
 
 // MessageField represents the field of a message.
 type MessageField struct {
-	Typ     string
-	Name    string
-	tag     int
-	Comment string
+	Typ      string
+	Name     string
+	tag      int
+	Comment  string
+	Optional bool
 }
 
 // NewMessageField creates a new message field.
-func NewMessageField(typ, name string, tag int, comment string) MessageField {
-	return MessageField{typ, name, tag, comment}
+func NewMessageField(typ, name string, tag int, comment string, optional bool) MessageField {
+	return MessageField{typ, name, tag, comment, optional}
 }
 
 // Tag returns the unique numbered tag of the message field.
@@ -647,7 +655,11 @@ func (f MessageField) Tag() int {
 
 // String returns a string representation of a message field.
 func (f MessageField) String() string {
-	return fmt.Sprintf("%s %s = %d", f.Typ, f.Name, f.tag)
+	prefix := ""
+	if f.Optional {
+		prefix = "optional "
+	}
+	return fmt.Sprintf("%s%s %s = %d", prefix, f.Typ, f.Name, f.tag)
 }
 
 // Column represents a database column.
@@ -716,7 +728,11 @@ func parseColumn(s *Schema, msg *Message, col Column) error {
 		return fmt.Errorf("no compatible protobuf type found for `%s`. column: `%s`.`%s`", col.DataType, col.TableName, col.ColumnName)
 	}
 
-	field := NewMessageField(fieldType, col.ColumnName, len(msg.Fields)+1, col.ColumnComment)
+	isOptional := false
+	if col.IsNullable == "YES" {
+		isOptional = true
+	}
+	field := NewMessageField(fieldType, col.ColumnName, len(msg.Fields)+1, col.ColumnComment, isOptional)
 
 	err := msg.AppendField(field)
 	if nil != err {
